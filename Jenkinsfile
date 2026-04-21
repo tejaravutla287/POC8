@@ -1,56 +1,59 @@
 pipeline {
     agent any
-
+    
     environment {
-        DOCKER_IMAGE = "html-poc-image"
-        SONARQUBE = "sonarqube"
+        SCANNER_HOME    = tool 'sonar-scanner'
+        SONAR_SERVER    = 'SonarQube'
+        DOCKER_HUB_USER = 'bhanutejaravutla'
+        IMAGE_NAME      = 'my-app'
+        IMAGE_TAG       = 'latest'
     }
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Fetch Code') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/your-username/html-poc.git'
+                    url: 'https://github.com/tejaravutla287/POC8.git'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonarqube') {
-                    sh '''
-                    sonar-scanner \
-                    -Dsonar.projectKey=html-poc
-                    '''
+                withSonarQubeEnv("${SONAR_SERVER}") {
+                    sh "${SCANNER_HOME}/bin/sonar-scanner -Dsonar.projectKey=my-poc"
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Push to Docker Hub') {
             steps {
-                sh '''
-                docker rm -f html-poc-container || true
-                docker run -d \
-                --name html-poc-container \
-                -p 80:80 \
-                $DOCKER_IMAGE
-                '''
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-hub-creds',
+                        usernameVariable: 'bhanutejaravutla',
+                        passwordVariable: 'Bhanu@145'
+                    )
+                ]) {
+                    sh """
+                        docker login -u $USER --password-stdin <<< "$PASS"
+                        docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+                    """
+                }
             }
         }
-    }
 
-    post {
-        success {
-            echo "✅ Deployment Successful!"
-        }
-        failure {
-            echo "❌ Pipeline Failed!"
+        stage('Deploy to Client (Local Run)') {
+            steps {
+                sh "docker rm -f my-app-container || true"
+                sh "docker run -d -p 80:80 --name my-app-container ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+            }
         }
     }
 }
