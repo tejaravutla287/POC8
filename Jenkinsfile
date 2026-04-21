@@ -41,10 +41,12 @@ pipeline {
                         passwordVariable: 'Bhanu@145'
                     )
                 ]) {
-                    sh """
-                        docker login -u $USER --password-stdin <<< "$PASS"
-                        docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
-                    """
+                        sh '''#!/bin/bash
+                                        set +x
+                                        echo "$Bhanu@145" | docker login -u "bhanutejaravutla" --password-stdin
+                                        docker push bhanutejaravutla/my-app:latest
+                                    '''
+
                 }
             }
         }
